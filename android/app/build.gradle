@@ -11,8 +11,8 @@ android {
         applicationId "dev.tuhc.android"
         minSdk 29
         targetSdk 34
-        versionCode 1
-        versionName "2.5.7-android"
+        versionCode 2
+        versionName "2.5.7-android-ds1"
     }
 
     signingConfigs {

@@ -10,12 +10,14 @@ if not exist base\package.json (
   exit /b 1
 )
 
-if exist keys\release.keystore (
-  set ANDROID_KEYSTORE_PATH=%~dp0keys\release.keystore
-  set /p ANDROID_KEYSTORE_PASSWORD=<%~dp0keys\keystore_password.txt
-  set ANDROID_KEY_ALIAS=tuhc
-  set ANDROID_KEY_PASSWORD=%ANDROID_KEYSTORE_PASSWORD%
-)
+REM Note: no parentheses here. Inside an (...) block %VAR% expands before
+REM set /p runs, which leaves ANDROID_KEY_PASSWORD empty and breaks signing.
+if not exist keys\release.keystore goto :nokeys
+set ANDROID_KEYSTORE_PATH=%~dp0keys\release.keystore
+set /p ANDROID_KEYSTORE_PASSWORD=<%~dp0keys\keystore_password.txt
+set ANDROID_KEY_ALIAS=tuhc
+set ANDROID_KEY_PASSWORD=%ANDROID_KEYSTORE_PASSWORD%
+:nokeys
 
 cd base
 if not exist node_modules call yarn install --frozen-lockfile --ignore-engines
