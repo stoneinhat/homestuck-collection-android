@@ -20,6 +20,9 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import dev.tuhc.android.companion.CompanionDisplayManager
+import dev.tuhc.android.companion.DsBridge
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.util.zip.ZipInputStream
@@ -33,6 +36,7 @@ class MainActivity : Activity() {
     private var pathBox: EditText? = null
     private var statusLabel: TextView? = null
     private var extracting = false
+    private var companionManager: CompanionDisplayManager? = null
 
     companion object {
         private const val REQ_PICK_FOLDER = 41
@@ -40,6 +44,47 @@ class MainActivity : Activity() {
     }
 
     private val prefs by lazy { getSharedPreferences("tuhc", Context.MODE_PRIVATE) }
+
+    private val dsInjectJs: String by lazy {
+        resources.openRawResource(R.raw.dualscreen).bufferedReader().readText()
+    }
+
+    /** Sync callbacks from both WebViews' dual-screen bridges. */
+    private val dsListener = object : DsBridge.Listener {
+        override fun onDsUrl(role: String, url: String) {
+            if (role != "panel") return
+            runOnUiThread {
+                companionManager?.let {
+                    it.leaderUrl = url
+                    it.presentationEval(
+                        "window.__tuhcDsFollowNav && window.__tuhcDsFollowNav(${JSONObject.quote(url)});"
+                    )
+                }
+            }
+        }
+
+        override fun onDsNavRequest(url: String) {
+            runOnUiThread {
+                // The leader owns history + persistence; navigate it and the
+                // resulting pushState report brings the follower along.
+                webView?.evaluateJavascript(
+                    "window.vm && window.vm.\$pushURL(${JSONObject.quote(url)});",
+                    null
+                )
+            }
+        }
+
+        override fun onDsReady(role: String) {
+            if (role != "text") return
+            runOnUiThread {
+                companionManager?.let {
+                    it.presentationEval(
+                        "window.__tuhcDsFollowNav && window.__tuhcDsFollowNav(${JSONObject.quote(it.leaderUrl)});"
+                    )
+                }
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -315,6 +360,20 @@ class MainActivity : Activity() {
                 showSetupScreen(packDir)
             }
         }
+        companionManager?.setAppForeground(true)
+    }
+
+    override fun onPause() {
+        companionManager?.setAppForeground(false)
+        super.onPause()
+    }
+
+    override fun onNewIntent(newIntent: Intent?) {
+        super.onNewIntent(newIntent)
+        if (newIntent?.hasExtra("ds_force_no_secondary") == true) {
+            companionManager?.forceNoSecondary =
+                newIntent.getBooleanExtra("ds_force_no_secondary", false)
+        }
     }
 
     // ---------- main app ----------
@@ -365,6 +424,11 @@ class MainActivity : Activity() {
             }
         }
         wv.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView, url: String) {
+                super.onPageFinished(view, url)
+                companionManager?.reinjectLeaderIfShowing()
+            }
+
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
                 // Keep the app inside the WebView; open true externals in a browser
                 return if (url.startsWith("http://127.0.0.1") ||
@@ -382,6 +446,8 @@ class MainActivity : Activity() {
             }
         }
         wv.setBackgroundColor(Color.parseColor("#35bfff"))
+        // Bridge must be attached before the page loads to be visible to JS.
+        wv.addJavascriptInterface(DsBridge("panel", dsListener), "TuhcDs")
         setContentView(wv)
         enterImmersiveMode()
 
@@ -390,6 +456,20 @@ class MainActivity : Activity() {
             wv.restoreState(state)
         } else {
             wv.loadUrl("http://127.0.0.1:${LocalServer.PORT}/")
+        }
+
+        if (companionManager == null) {
+            companionManager = CompanionDisplayManager(
+                activity = this,
+                bridgeListener = dsListener,
+                injectJs = dsInjectJs,
+                leaderEval = { script -> webView?.evaluateJavascript(script, null) }
+            ).also {
+                it.forceNoSecondary =
+                    intent?.getBooleanExtra("ds_force_no_secondary", false) ?: false
+                it.start()
+                it.setAppForeground(true)
+            }
         }
     }
 
@@ -431,6 +511,8 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        companionManager?.stop()
+        companionManager = null
         server?.stop()
         server = null
     }

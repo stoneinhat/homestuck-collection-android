@@ -209,6 +209,85 @@ index 43f1932..92c1087 100644
    updated() {
      if (this.$isWebApp) this.filterLinksAndImages(window.document.body);
    },
+diff --git a/src/components/SpecialPages/fullscreenFlash.vue b/src/components/SpecialPages/fullscreenFlash.vue
+index 97af793..2814a9d 100644
+--- a/src/components/SpecialPages/fullscreenFlash.vue
++++ b/src/components/SpecialPages/fullscreenFlash.vue
+@@ -1,6 +1,6 @@
+ <template>
+   <div>
+-    <GenericPage v-if="gameOverPreload" class="gameOverPreload" >
++    <GenericPage v-if="gameOverPreload && $root.dsRole !== 'text'" class="gameOverPreload" >
+       <div class="pageContent">
+         <div class="mediaContent">
+           <h2 class="pageTitle">[S] GAME OVER.</h2>
+@@ -21,7 +21,8 @@
+         <div class="pageContent">
+           <Footnotes :pageId="thisPage.pageId" preface />
+           <div class="mediaContent">
+-              <Media :url="flashUrl" ref="flash" />
++              <!-- dual-screen text role must not boot the Flash -->
++              <Media :url="flashUrl" ref="flash" v-if="$root.dsRole !== 'text'" />
+           </div>
+           <div class="textContent">
+               <PageNav :thisPage="thisPage" ref="pageNav" :nextPages="nextPagesArray" :class="(needsNav ? '' : 'hidden')" />
+diff --git a/src/components/SpecialPages/x2Combo.vue b/src/components/SpecialPages/x2Combo.vue
+index 5f08169..464e77a 100644
+--- a/src/components/SpecialPages/x2Combo.vue
++++ b/src/components/SpecialPages/x2Combo.vue
+@@ -12,7 +12,7 @@
+         <Footnotes :pageId="thisPages[0].pageId" preface />
+           <div class="mediaContent">
+             <h2 class="pageTitle" v-text="thisPages[0].title" />
+-            <div class="media">
++            <div class="media" v-if="$root.dsRole !== 'text'">
+               <Media v-for="url in pageMedia[0]" :key="url" :url="url" class="panel"/>
+             </div>
+           </div>      
+@@ -26,7 +26,7 @@
+         <Footnotes :pageId="thisPages[1].pageId" preface />
+           <div class="mediaContent">
+             <h2 class="pageTitle" v-html="thisPages[1].title" />
+-            <div class="media">
++            <div class="media" v-if="$root.dsRole !== 'text'">
+               <Media v-for="url in pageMedia[1]" :key="url" :url="url" class="panel"/>
+             </div>
+           </div>      
+diff --git a/src/components/StoryPage/Page.vue b/src/components/StoryPage/Page.vue
+index 3dfd217..4843b89 100644
+--- a/src/components/StoryPage/Page.vue
++++ b/src/components/StoryPage/Page.vue
+@@ -22,7 +22,10 @@
+             v-if="!supercartridge"
+             ref="pageTitle"
+           />
+-          <div class="media" ref="media">
++          <!-- On the dual-screen text role the media must not mount at all:
++               CSS hiding alone would still boot Ruffle/Flash on the bottom
++               screen. -->
++          <div class="media" ref="media" v-if="$root.dsRole !== 'text'">
+             <Media
+               v-for="url in pageMedia"
+               :key="url"
+@@ -66,7 +69,7 @@
+         </div>
+         <Footnotes :pageId="thisPage.pageId" class="footnotesContainer" />
+       </div>
+-      <div class="hidden">
++      <div class="hidden" v-if="$root.dsRole !== 'text'">
+         <!-- Preload images -->
+         <Media
+           v-for="url in nextPagesMedia"
+@@ -353,7 +356,8 @@ export default {
+     window.removeEventListener("message", this.handleIframeMessage);
+   },
+   updated() {
+-    if (this.hscroll) this.$refs.media.scrollLeft = 0;
++    // media ref is absent on the dual-screen text role
++    if (this.hscroll && this.$refs.media) this.$refs.media.scrollLeft = 0;
+   }
+ };
+ </script>
 diff --git a/src/components/SystemPages/Settings.vue b/src/components/SystemPages/Settings.vue
 index 5c4e27e..0a9491f 100644
 --- a/src/components/SystemPages/Settings.vue
@@ -502,7 +581,7 @@ index 7654b8c..77f1e62 100644
            width="${this.flashProps.width}"
            height="${this.flashProps.height}"
 diff --git a/src/main.js b/src/main.js
-index 2fdb9dc..68291bb 100644
+index 2fdb9dc..18edff6 100644
 --- a/src/main.js
 +++ b/src/main.js
 @@ -210,9 +210,12 @@ Vue.mixin({
@@ -520,6 +599,19 @@ index 2fdb9dc..68291bb 100644
      },
      $openLink(url, auxClick = false) {
        // Open a link. Could be intra-app, external, or an assets:// uri
+@@ -652,7 +655,11 @@ Promise.all(promises_loading).then(_ => {
+         loadStage: undefined,
+         guestMode: false,
+         platform: window.isWebApp ? "webapp" : "electron",
+-        tabTheme: {} // Modified by App (avoid reacting to refs)
++        tabTheme: {}, // Modified by App (avoid reacting to refs)
++        // Dual-screen role, set by the Android shell's injected JS:
++        // null (single screen), "panel" (top screen) or "text" (bottom
++        // screen). Components use it to skip mounting heavy media.
++        dsRole: window.__TUHC_DS_ROLE__ || null
+       };
+     },
+     computed: {
 diff --git a/src/resources.js b/src/resources.js
 index 6e19eae..d7a54e2 100644
 --- a/src/resources.js

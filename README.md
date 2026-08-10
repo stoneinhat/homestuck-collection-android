@@ -63,6 +63,34 @@ If a flash page shows a red error box instead of content, it names the
 file that failed to load and your WebView version. Try updating Android
 System WebView before filing an issue.
 
+## Dual-screen devices (AYN Thor, AYANEO Pocket DS, ...)
+
+On devices that expose a second screen as an Android presentation
+display, the app automatically splits story pages across both screens:
+panels, Flash animations, and the page title stay on the main screen
+while the narrative text, chat logs, and page navigation move to the
+second screen. Tapping a link on either screen turns the page on both.
+
+How it works: the main activity keeps its WebView on the primary
+display and shows an `android.app.Presentation` hosting a second
+WebView (same localhost server) on the secondary display. Injected
+JS/CSS gives each WebView a role - the top never renders `.textContent`,
+the bottom never mounts media (so Ruffle only runs once, on top) and
+never writes to the shared localStorage; navigation is relayed through
+a small JS bridge so the main screen owns history and reading progress.
+See `android/.../companion/` and `android/app/src/main/res/raw/dualscreen.js`.
+
+Notes:
+
+- Single-screen devices are unaffected; the companion only appears when
+  a presentation display exists.
+- Gamepad/keyboard focus stays on the main screen (the presentation is
+  non-focusable); touch still works on the bottom screen.
+- System pages (Settings, Map, Search, ...) currently show their normal
+  UI on both screens; only story pages split.
+- Debug switch to force single-screen behavior:
+  `adb shell am start -n dev.tuhc.android/.MainActivity --ez ds_force_no_secondary true`
+
 ## Prebuilt APK
 
 https://u.pone.rs/qnxlgrya.zip (~101 MB). Unzip it and install

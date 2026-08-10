@@ -7,3 +7,12 @@ android/local.properties
 android/app/src/main/assets/
 node_modules/
 *.apk
+
+# local dev material, never ship assets
+AssetPackV2.zip
+extracted/
+placeholder/
+android/.thorforge/
+.thorforge/
+hs_index.html
+webview-*.png
