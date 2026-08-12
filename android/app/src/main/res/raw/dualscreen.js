@@ -30,7 +30,22 @@
   var CSS_PANEL = [
     "/* dual-screen: text lives on the bottom screen */",
     ".pageBody .textContent { display: none !important; }",
-    ".pageBody .footnotesContainer { display: none !important; }"
+    ".pageBody .footnotesContainer { display: none !important; }",
+    "/* drop the MSPA grey page chrome so panels sit on true black */",
+    ".pageBody.customStyles { background: #000 !important; }",
+    ".pageBody .pageFrame {",
+    "  width: 100% !important; max-width: 100% !important;",
+    "  background: transparent !important; padding: 0 !important;",
+    "}",
+    ".pageBody .pageContent {",
+    "  width: auto !important; min-width: 0 !important; max-width: 100% !important;",
+    "  background: transparent !important;",
+    "}",
+    "/* slight zoom-out so larger Flash stages (\"player\" sizes) fit */",
+    ".pageBody .mediaContent {",
+    "  transform: scale(0.92); transform-origin: top center;",
+    "  width: 100% !important;",
+    "}"
   ].join("\n");
 
   var CSS_TEXT = [

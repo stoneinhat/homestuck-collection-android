@@ -13,6 +13,7 @@ import android.view.WindowManager
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import dev.tuhc.android.R
 
 /**
  * Bottom-screen window that shows the story text. Hosts its own WebView
@@ -30,7 +31,7 @@ class TextPresentation(
     private val startUrl: String,
     private val bridge: DsBridge,
     private val injectJs: String,
-) : Presentation(outerContext, display) {
+) : Presentation(outerContext, display, R.style.CompanionPresentationTheme) {
 
     var webView: WebView? = null
         private set
@@ -41,12 +42,19 @@ class TextPresentation(
 
         window?.apply {
             setBackgroundDrawable(ColorDrawable(Color.BLACK))
+            // Presentation extends Dialog; the default dialog theme enables
+            // FLAG_DIM_BEHIND. On dual-screen devices that dim can wash out the
+            // *primary* Activity (grey veil on the top screen) the moment the
+            // companion appears — matching "light grey overlay that pops on".
+            clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            setDimAmount(0f)
             addFlags(
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                     or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
             )
             attributes = attributes.apply {
                 screenOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                dimAmount = 0f
             }
             decorView.systemUiVisibility = (
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
