@@ -1,9 +1,11 @@
 # homestuck-collection-android
 
 An Android port of The Unofficial Homestuck Collection. Fully offline.
-The reader runs in a WebView against a localhost server bundled into the
-app, flashes play through Ruffle, and there's an on-screen joystick for
-the walkaround games.
+This fork adds dual-screen support for the AYN Thor, AYANEO Pocket DS,
+and similar devices: comic panels on the top screen, story text on the
+bottom. The reader runs in a WebView against a localhost server bundled
+into the app, flashes play through Ruffle, and there's an on-screen
+joystick for the walkaround games.
 
 This repo doesn't contain the collection itself. The web code belongs to
 its authors and the comic belongs to Hussie, so what's here is just the
@@ -17,9 +19,9 @@ jennymaeleidig/unofficial-homestuck-collection-web into `base/`, checks
 out commit `1cf4339` (the patch is against that commit, later ones may
 not work), applies `patches/port.patch`, and copies `overlay/` in.
 
-You also need Asset Pack V2 (~4.3 GB). The collection's website is gone,
-but https://stash.giovanh.com/unofficial-homestuck-collection/ lists
-mirrors.
+You also need Asset Pack V2 (~4.3 GB). It is currently mirrored at
+https://homestuck.github.io/ (`assets.zip`). Other mirrors are listed at
+https://stash.giovanh.com/unofficial-homestuck-collection/.
 
 ## Building
 
@@ -93,8 +95,11 @@ Notes:
 
 ## Prebuilt APK
 
-https://u.pone.rs/qnxlgrya.zip (~101 MB). Unzip it and install
-`app-release.apk`. You still need the asset pack.
+Latest dual-screen build (AYN Thor / AYANEO Pocket DS):
+https://github.com/stoneinhat/homestuck-collection-android/releases/latest
+
+Download `app-release.apk` from that page and install it. You still need
+Asset Pack V2; it is not included in the APK.
 
 ## License
 
