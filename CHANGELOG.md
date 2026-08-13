@@ -4,6 +4,8 @@ All notable changes to this Android port are documented here.
 
 ## Unreleased
 
+## 2.5.7-android-ds2
+
 ### Fixed
 
 - Top screen no longer gets a grey wash when the dual-screen companion
