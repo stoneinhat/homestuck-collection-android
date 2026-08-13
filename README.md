@@ -65,8 +65,11 @@ System WebView before filing an issue.
 
 ## Prebuilt APK
 
-https://u.pone.rs/qnxlgrya.zip (~101 MB). Unzip it and install
-`app-release.apk`. You still need the asset pack.
+Latest dual-screen build (AYN Thor / AYANEO Pocket DS):
+https://github.com/stoneinhat/homestuck-collection-android/releases/latest
+
+Download `app-release.apk` from that page. You still need Asset Pack V2;
+it is not included. Dual-screen source lives on the `dual-screen` branch.
 
 ## License
 
