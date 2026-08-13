@@ -25,6 +25,8 @@ class CompanionDisplayManager(
     private val injectJs: String,
     /** Runs a JS snippet in the main (top screen) WebView. */
     private val leaderEval: (String) -> Unit,
+    /** True while the companion is up so the leader can leave fit-to-width. */
+    private val onLeaderDualScreen: (Boolean) -> Unit = {},
 ) {
     companion object {
         private const val TAG = "TUHCCompanion"
@@ -138,6 +140,7 @@ class CompanionDisplayManager(
 
     /** Switch the top WebView into panel mode (hide text, report urls). */
     private fun activateLeader() {
+        onLeaderDualScreen(true)
         leaderEval("$injectJs\n;window.__tuhcDsActivate && window.__tuhcDsActivate('panel');")
     }
 
@@ -152,6 +155,7 @@ class CompanionDisplayManager(
 
     /** Restore the top WebView to normal single-screen rendering. */
     private fun deactivateLeader() {
+        onLeaderDualScreen(false)
         leaderEval("window.__tuhcDsDeactivate && window.__tuhcDsDeactivate();")
     }
 

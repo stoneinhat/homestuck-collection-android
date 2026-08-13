@@ -1,6 +1,7 @@
 package dev.tuhc.android.companion
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.Presentation
 import android.content.Context
 import android.content.pm.ActivityInfo
@@ -36,26 +37,43 @@ class TextPresentation(
     var webView: WebView? = null
         private set
 
-    @SuppressLint("SetJavaScriptEnabled")
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+    init {
+        // A Presentation is a Dialog. Outside-touch cancel would treat the
+        // *top* screen as "outside" and can dim/select the Activity on first tap.
+        setCancelable(false)
+        setCanceledOnTouchOutside(false)
+        if (outerContext is Activity) {
+            setOwnerActivity(outerContext)
+        }
+    }
 
+    private fun suppressDialogDim() {
         window?.apply {
             setBackgroundDrawable(ColorDrawable(Color.BLACK))
-            // Presentation extends Dialog; the default dialog theme enables
-            // FLAG_DIM_BEHIND. On dual-screen devices that dim can wash out the
-            // *primary* Activity (grey veil on the top screen) the moment the
-            // companion appears — matching "light grey overlay that pops on".
             clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
             setDimAmount(0f)
             addFlags(
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                    or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
                     or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
             )
             attributes = attributes.apply {
                 screenOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
                 dimAmount = 0f
             }
+        }
+        ownerActivity?.window?.apply {
+            clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            setDimAmount(0f)
+        }
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        suppressDialogDim()
+
+        window?.apply {
             decorView.systemUiVisibility = (
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                     or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
@@ -82,6 +100,7 @@ class TextPresentation(
             allowContentAccess = false
         }
         wv.setBackgroundColor(Color.BLACK)
+        wv.defaultFocusHighlightEnabled = false
         // Must be attached before the page loads to be visible to its JS.
         wv.addJavascriptInterface(bridge, "TuhcDs")
         wv.webViewClient = object : WebViewClient() {
@@ -96,6 +115,12 @@ class TextPresentation(
         }
         setContentView(wv)
         wv.loadUrl(startUrl)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // Dialog.show() can re-apply theme dim after onCreate.
+        suppressDialogDim()
     }
 
     fun evalJs(script: String) {

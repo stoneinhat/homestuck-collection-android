@@ -446,10 +446,13 @@ class MainActivity : Activity() {
             }
         }
         wv.setBackgroundColor(Color.parseColor("#35bfff"))
+        wv.defaultFocusHighlightEnabled = false
         // Bridge must be attached before the page loads to be visible to JS.
         wv.addJavascriptInterface(DsBridge("panel", dsListener), "TuhcDs")
         setContentView(wv)
         enterImmersiveMode()
+        window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        window.setDimAmount(0f)
 
         val state = savedWebState
         if (state != null) {
@@ -463,7 +466,8 @@ class MainActivity : Activity() {
                 activity = this,
                 bridgeListener = dsListener,
                 injectJs = dsInjectJs,
-                leaderEval = { script -> webView?.evaluateJavascript(script, null) }
+                leaderEval = { script -> webView?.evaluateJavascript(script, null) },
+                onLeaderDualScreen = { dual -> applyLeaderDualScreen(dual) }
             ).also {
                 it.forceNoSecondary =
                     intent?.getBooleanExtra("ds_force_no_secondary", false) ?: false
@@ -471,6 +475,19 @@ class MainActivity : Activity() {
                 it.setAppForeground(true)
             }
         }
+    }
+
+    /**
+     * Dual-screen panel mode must not use WebView overview (fit-to-width)
+     * zoom: the collection's viewport is width=650, so overview scales that
+     * to the full 1920px top screen and crops the panel vertically.
+     */
+    private fun applyLeaderDualScreen(dual: Boolean) {
+        val wv = webView ?: return
+        wv.settings.loadWithOverviewMode = !dual
+        if (dual) wv.setInitialScale(100)
+        window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        window.setDimAmount(0f)
     }
 
     private fun enterImmersiveMode() {

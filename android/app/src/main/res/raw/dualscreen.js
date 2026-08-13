@@ -21,34 +21,50 @@
   window.__TUHC_DS_LOADED__ = true;
 
   var STYLE_ID = "tuhc-ds-style";
+  var VIEWPORT_DEFAULT = "width=650";
+  var VIEWPORT_PANEL = "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no";
   var state = {
     role: null,
     reporting: false,
-    lastSent: null
+    lastSent: null,
+    fitTarget: null,
+    fitTimer: null,
+    observer: null
   };
 
+  var CSS_SHARED = [
+    "html, body, #window, #app, a, button, div {",
+    "  -webkit-tap-highlight-color: transparent !important;",
+    "  -webkit-focus-ring-color: transparent !important;",
+    "  outline: none !important;",
+    "}"
+  ].join("\n");
+
   var CSS_PANEL = [
-    "/* dual-screen: text lives on the bottom screen */",
+    CSS_SHARED,
+    "html, body, #window, #app { background: #000 !important; }",
     ".pageBody .textContent { display: none !important; }",
     ".pageBody .footnotesContainer { display: none !important; }",
-    "/* drop the MSPA grey page chrome so panels sit on true black */",
-    ".pageBody.customStyles { background: #000 !important; }",
+    ".pageBody .pageFooter, .footer { display: none !important; }",
+    ".pageBody.customStyles {",
+    "  background: #000 !important;",
+    "  min-height: 100vh !important;",
+    "  padding-bottom: 0 !important;",
+    "  align-items: center !important;",
+    "}",
     ".pageBody .pageFrame {",
-    "  width: 100% !important; max-width: 100% !important;",
+    "  width: auto !important; max-width: 100% !important;",
     "  background: transparent !important; padding: 0 !important;",
+    "  margin: 0 auto !important;",
     "}",
     ".pageBody .pageContent {",
     "  width: auto !important; min-width: 0 !important; max-width: 100% !important;",
     "  background: transparent !important;",
-    "}",
-    "/* slight zoom-out so larger Flash stages (\"player\" sizes) fit */",
-    ".pageBody .mediaContent {",
-    "  transform: scale(0.92); transform-origin: top center;",
-    "  width: 100% !important;",
     "}"
   ].join("\n");
 
   var CSS_TEXT = [
+    CSS_SHARED,
     "/* dual-screen: panels live on the top screen */",
     ".pageBody .mediaContent { display: none !important; }",
     ".pageBody .intro-overlay { display: none !important; }",
@@ -72,6 +88,19 @@
       document.documentElement.appendChild(el);
     }
     el.textContent = cssText;
+  }
+
+  function setViewport(content) {
+    var metas = document.querySelectorAll('meta[name="viewport"]');
+    var meta = metas[0];
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.setAttribute("name", "viewport");
+      if (document.head) document.head.appendChild(meta);
+      else document.documentElement.appendChild(meta);
+    }
+    meta.setAttribute("content", content);
+    for (var i = 1; i < metas.length; i++) metas[i].remove();
   }
 
   function whenVm(fn) {
@@ -98,6 +127,98 @@
     } catch (e) {
       /* bridge unavailable; nothing to sync with */
     }
+    scheduleFit();
+  }
+
+  function clearFit() {
+    if (state.fitTimer) {
+      clearTimeout(state.fitTimer);
+      state.fitTimer = null;
+    }
+    if (state.fitTarget) {
+      state.fitTarget.style.zoom = "";
+      state.fitTarget = null;
+    }
+    document.documentElement.style.overflow = "";
+    if (document.body) document.body.style.overflow = "";
+  }
+
+  function findFitTarget() {
+    return document.querySelector(".pageBody .media");
+  }
+
+  function chromeHeight() {
+    var h = 0;
+    var nodes = document.querySelectorAll(
+      "#appHeader, .navBanner, .pageBody .pageTitle, .pageBody .bannerDiv"
+    );
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      if (!el || !el.getBoundingClientRect) continue;
+      var st = window.getComputedStyle(el);
+      if (st.display === "none" || st.visibility === "hidden") continue;
+      h += el.getBoundingClientRect().height;
+    }
+    return h;
+  }
+
+  function fitMedia() {
+    if (state.role !== "panel") return;
+    var target = findFitTarget();
+    if (!target) {
+      document.documentElement.style.overflow = "";
+      if (document.body) document.body.style.overflow = "";
+      return;
+    }
+
+    if (state.fitTarget && state.fitTarget !== target) {
+      state.fitTarget.style.zoom = "";
+    }
+    target.style.zoom = "1";
+    state.fitTarget = target;
+
+    var availW = window.innerWidth - 16;
+    var availH = window.innerHeight - chromeHeight() - 16;
+    if (availW < 32 || availH < 32) return;
+
+    var r = target.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) return;
+
+    var scale = Math.min(availW / r.width, availH / r.height);
+    if (!isFinite(scale) || scale <= 0) return;
+    target.style.zoom = String(scale);
+    document.documentElement.style.overflow = "hidden";
+    if (document.body) document.body.style.overflow = "hidden";
+  }
+
+  function scheduleFit() {
+    if (state.role !== "panel") return;
+    if (state.fitTimer) clearTimeout(state.fitTimer);
+    state.fitTimer = setTimeout(fitMedia, 50);
+  }
+
+  function startFitWatch() {
+    stopFitWatch();
+    window.addEventListener("resize", scheduleFit);
+    document.addEventListener("load", scheduleFit, true);
+    if (window.MutationObserver) {
+      state.observer = new MutationObserver(scheduleFit);
+      state.observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true
+      });
+    }
+    scheduleFit();
+  }
+
+  function stopFitWatch() {
+    window.removeEventListener("resize", scheduleFit);
+    document.removeEventListener("load", scheduleFit, true);
+    if (state.observer) {
+      state.observer.disconnect();
+      state.observer = null;
+    }
+    clearFit();
   }
 
   // History hooks are installed once; report() is a no-op until the
@@ -118,15 +239,18 @@
 
   function activatePanel() {
     state.role = "panel";
+    setViewport(VIEWPORT_PANEL);
     setCss(CSS_PANEL);
     state.reporting = true;
     state.lastSent = null;
+    startFitWatch();
     whenVm(function (vm) {
       vm.dsRole = "panel";
       try {
         window.TuhcDs.ready();
       } catch (e) {}
       report();
+      scheduleFit();
     });
   }
 
@@ -200,6 +324,8 @@
   window.__tuhcDsDeactivate = function () {
     state.role = null;
     state.reporting = false;
+    stopFitWatch();
+    setViewport(VIEWPORT_DEFAULT);
     setCss(null);
     whenVm(function (vm) {
       vm.dsRole = null;
